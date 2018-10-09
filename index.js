@@ -7,7 +7,7 @@ const ora = require('ora');
 const rimraf = require('rimraf');
 
 const config = {
-  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
 };
 
 // Parser configuration
@@ -17,7 +17,6 @@ const parser = new ArgumentParser({
 });
 
 parser.addArgument('url', { help: 'URL of published Google Slides' });
-parser.addArgument(['-c', '--count'], { help: 'Number of slides', required: true });
 parser.addArgument(['-o', '--output'], { help: 'Output file', defaultValue: 'slides.pdf' });
 parser.addArgument(['--no-pdf'], { help: 'Do not generate PDF', action: 'storeTrue' });
 
@@ -37,6 +36,14 @@ if (!fs.existsSync(filename)) fs.mkdirSync(filename);
   await page.goto(args.url, { waitUntil: 'networkidle2', timeout: 0 });
   spinner.succeed();
 
+  let pages = await page.$eval('#\\:w', e => e.getAttribute('aria-setsize'));
+  pages = parseFloat(pages);
+
+  await page.evaluate(() => {
+    const el = document.querySelector('.punch-viewer-nav-v2.punch-viewer-nav-floating');
+    el.remove();
+  });
+
   spinner = ora('Starting slide grabbing').start();
   const el = await page.$('.punch-viewer-content');
   await page.waitFor(1500);
@@ -49,13 +56,13 @@ if (!fs.existsSync(filename)) fs.mkdirSync(filename);
     await page.waitFor(300);
 
     i++;
-  } while (i <= parseFloat(args.count));
+  } while (i <= pages);
 
   await browser.close();
   spinner.succeed('Successfully grabbed slides');
 
-  if (!args['no-pdf']) {
-    const files = Array.from({ length: args.count }).map((_, i) => `${filename}/${i + 1}.png`);
+  if (!args['no_pdf']) {
+    const files = Array.from({ length: pages }).map((_, i) => `${filename}/${i + 1}.png`);
   
     spinner = ora('Compiling images to PDF').start();
     im.convert([...files, '-quality', '100', `${filename}.pdf`], (err, stdout) => {
